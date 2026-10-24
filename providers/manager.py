@@ -1,32 +1,70 @@
 from __future__ import annotations
 
-import os
+from typing import Any
 
-from .base import BaseProvider, Mensaje, RespuestaProvider, TipoTarea
+from .base import Mensaje, RespuestaProvider, TipoTarea
+from .gemini import GeminiProvider
+from .groq import GroqProvider
 
 
-class GroqProvider(BaseProvider):
-    nombre = "groq"
-    modelo = "llama-3.1-8b-instant"
+class ProvidersManager:
+    def __init__(self) -> None:
+        self.proveedores: dict[str, Any] = {}
+        self.proveedor_principal: str | None = None
 
-    def __init__(self, api_key: str | None = None) -> None:
-        super().__init__(api_key or os.getenv("GROQ_API_KEY", ""))
+    def inicializar(self) -> None:
+        self.proveedores = {}
+        for provider in (GeminiProvider(), GroqProvider()):
+            if provider.api_key:
+                self.proveedores[provider.nombre] = provider
+        self.proveedor_principal = next(iter(self.proveedores), None)
 
-    async def generar(self, mensajes: list[Mensaje], system_prompt: str | None = None, tipo_tarea: TipoTarea | None = None) -> RespuestaProvider:
-        if not self.api_key:
+    def _seleccionar_proveedor(self, tipo_tarea: TipoTarea | None = None) -> str | None:
+        if not self.proveedores:
+            return None
+        if tipo_tarea == TipoTarea.PROGRAMACION and "groq" in self.proveedores:
+            return "groq"
+        return next(iter(self.proveedores))
+
+    def obtener_proveedor_principal(self) -> str | None:
+        return self.proveedor_principal
+
+    async def generar_respuesta(
+        self,
+        mensajes: list[Mensaje],
+        system_prompt: str | None = None,
+        tipo_tarea: TipoTarea | None = None,
+    ) -> RespuestaProvider:
+        if not self.proveedores:
             return RespuestaProvider(
                 exito=False,
                 contenido="",
-                proveedor=self.nombre,
-                modelo=self.modelo,
+                proveedor="sin_proveedor",
+                modelo="sin_modelo",
                 latencia_ms=0,
-                error="Falta GROQ_API_KEY",
+                error="No hay proveedores configurados (faltan claves API).",
             )
-        text = " ".join(m.content for m in mensajes)
-        return RespuestaProvider(
-            exito=True,
-            contenido=f"[Groq] {text[:200]}",
-            proveedor=self.nombre,
-            modelo=self.modelo,
-            latencia_ms=120,
-        )
+        nombre = self._seleccionar_proveedor(tipo_tarea)
+        if nombre is None:
+            return RespuestaProvider(
+                exito=False,
+                contenido="",
+                proveedor="sin_proveedor",
+                modelo="sin_modelo",
+                latencia_ms=0,
+                error="No hay proveedor disponible.",
+            )
+        provider = self.proveedores[nombre]
+        return await provider.generar(mensajes, system_prompt=system_prompt, tipo_tarea=tipo_tarea)
+
+    def obtener_metricas(self) -> dict[str, Any]:
+        return {
+            "proveedores": list(self.proveedores.keys()),
+            "proveedor_principal": self.proveedor_principal,
+            "cantidad": len(self.proveedores),
+        }
+
+
+providers_manager = ProvidersManager()
+
+__all__ = ["ProvidersManager", "providers_manager"]
