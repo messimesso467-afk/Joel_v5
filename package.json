@@ -1,0 +1,19 @@
+{
+  "name": "bot-minecraft",
+  "version": "1.0.0",
+  "description": "Bot de Minecraft de JOEL (mineflayer). El panel web es Python: python main.py. No usar npm start en Wispbyte.",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js",
+    "mc": "node bot.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "dotenv": "^16.6.1",
+    "mineflayer": "^4.39.0",
+    "mineflayer-pathfinder": "^2.4.5"
+  }
+}

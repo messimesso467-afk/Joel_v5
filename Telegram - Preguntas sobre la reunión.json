@@ -1,0 +1,985 @@
+{
+  "name": "Telegram - Preguntas sobre la reunión",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "id": "cef87996-3b82-4d07-b4a2-a65e0cd5cd95",
+      "name": "Mensaje de Telegram",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.5,
+      "position": [
+        0,
+        112
+      ],
+      "webhookId": "97cb3c41-08de-442e-b8c3-b61dcbaabef3",
+      "credentials": {
+        "telegramApi": {
+          "id": "LbxMWfMhs1PkAgg9",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "foto",
+              "leftValue": "={{ ($json.message.photo || []).length > 0 }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a6aae5d2-1c4f-41c0-b928-497012620497",
+      "name": "¿Es una captura?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        256
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "fileId": "={{ $json.message.photo[$json.message.photo.length - 1].file_id }}",
+        "additionalFields": {
+          "mimeType": "image/jpeg"
+        }
+      },
+      "id": "0e7c79f8-edba-462c-93a3-3aad7105b318",
+      "name": "Descargar captura",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        432,
+        528
+      ],
+      "webhookId": "6d9e3453-3523-4a3d-970e-8ebd03a825bf",
+      "credentials": {
+        "telegramApi": {
+          "id": "LbxMWfMhs1PkAgg9",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "binaryToPropery",
+        "destinationKey": "img",
+        "options": {}
+      },
+      "id": "2dcf88cb-b216-4e7a-8a9c-830036b515f7",
+      "name": "Preparar captura",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        656,
+        848
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "groqApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: \"qwen/qwen3.8-27b\", temperature: 0.6, max_completion_tokens: 200, reasoning_effort: \"none\", messages: [ { role: \"user\", content: [ { type: \"text\", text: \"Eres Joel, de la serie peruana Al fondo hay sitio: limeño, alegre y bromista. Esta es una captura de Minecraft Java (normalmente PvP) de Alejavi. Dale UN consejo táctico concreto y útil ya mismo sobre lo que ves (vida, armadura, inventario, posición, rival). Máximo 2 frases cortas, en español, como si hablaras, con un toque de jerga peruana. Sin emojis ni símbolos. Si la imagen no es de Minecraft, ayúdalo igual en 2 frases. Lo que Alejavi escribió con la foto: \" + ($(\"Mensaje de Telegram\").item.json.message.caption || \"nada\") }, { type: \"image_url\", image_url: { url: \"data:image/jpeg;base64,\" + $json.img } } ] } ] }) }}",
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "id": "ff6e0b56-5242-47df-b4e5-165b388696f0",
+      "name": "Consejo PvP rápido",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        656,
+        528
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "groqApi": {
+          "id": "rrAr23dfwHgoRyOv",
+          "name": "Groq - Joel"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "t1",
+              "name": "texto",
+              "value": "={{ String(($json.choices && $json.choices[0] && $json.choices[0].message && $json.choices[0].message.content) || \"No pude ver bien la captura, causa, mándala otra vez\").replace(/<think>[\\s\\S]*?<\\/think>/g, \"\").trim() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "54bba320-4b90-498f-9e73-db59ce04f2a9",
+      "name": "Texto del consejo",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1104,
+        944
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Mensaje de Telegram').item.json.message.chat.id }}",
+        "text": "={{ $json.texto }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "9466f94d-cb30-424b-9ae1-717f2b7088b4",
+      "name": "Enviar consejo en texto",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1328,
+        528
+      ],
+      "webhookId": "7f4f3cf3-b708-477e-b9fd-51dc109a0005",
+      "credentials": {
+        "telegramApi": {
+          "id": "LbxMWfMhs1PkAgg9",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.message.text }}",
+        "options": {
+          "systemMessage": "=Te llamas Joel. Eres el asistente de nuestro equipo y responde preguntas sobre reuniones de Google Meet grabadas con Vexa. Cuando te pregunten quién eres o cómo te llamas, preséntate como Joel. Al saludar por primera vez en una conversación, identifícate como Joel. Responde siempre en español, de forma clara y breve.\n\nPersonalidad: inspírate en Joel Gonzales de la serie peruana Al fondo hay sitio. Eres un chico limeño alegre, carismático, enamoradizo y bromista. Usa jerga peruana ligera y natural (causa, pe, bacán, chévere, ya pe) sin exagerar. Suelta un chiste corto o una broma cuando encaje, sin perder la información importante. Escribe natural, como hablas, sin emojis ni símbolos.\n\nEstás hablando con Alejavi Alejate. Llámalo siempre Alejavi Alejate (o Alejavi), sin importar el nombre que aparezca en su perfil de Telegram. Llámalo por su nombre de forma natural y amable (por ejemplo, al saludar o al empezar la respuesta), sin repetirlo en exceso.\n\nQué hacer:\n- Si pide unirte a una reunión, saca el código del Meet (formato abc-defg-hij, aunque pegue el link completo) y usa la herramienta entrar_reunion. Luego dile que admita al bot en el Meet.\n- Si pregunta cómo va la clase, usa leer_transcripcion y dale un resumen corto de lo último que se dijo.\n- Si pide efectos o animaciones para su video, usa leer_transcripcion y dale una lista corta por idea: texto en pantalla, animación y transición. No escribas guion.\n- Si pide que le avises cuando digan una palabra en el Meet, usa vigilar_palabra con esa palabra y el código de la reunión. Confírmale que le avisarás solo apenas se diga. Si pide dejar de vigilarla, usa dejar_de_vigilar.\n- Si no hay código de reunión, pídeselo. Si ya te lo dio antes en esta conversación, puedes reutilizarlo.\n\nBasa los resúmenes solo en la transcripción; si está vacía, dilo.\n\nResponde en español, máximo 6 líneas, sin formato raro: nada de asteriscos, negritas, títulos ni etiquetas HTML. Usa guiones simples para las listas.",
+          "enableStreaming": false
+        }
+      },
+      "id": "57427d61-3ed9-4b2e-8890-164e6a622b91",
+      "name": "Asistente de reuniones",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        288,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-120b",
+        "options": {
+          "maxTokensToSample": 1024,
+          "temperature": 0.7
+        }
+      },
+      "id": "68b9c20b-7ce9-44f5-a45c-96aaa11bc43e",
+      "name": "Groq",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        224,
+        336
+      ],
+      "credentials": {
+        "groqApi": {
+          "id": "rrAr23dfwHgoRyOv",
+          "name": "Groq - Joel"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Mensaje de Telegram').item.json.message.chat.id }}",
+        "contextWindowLength": 10
+      },
+      "id": "6956c0fa-28cf-402d-a548-0315bb69db0d",
+      "name": "Memoria del chat",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        352,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "toolDescription": "Lee la transcripción de una reunión de Google Meet (lo que se ha dicho hasta ahora). Recibe el código de la reunión en formato abc-defg-hij.",
+        "url": "=https://api.cloud.vexa.ai/transcripts/google_meet/{{ $fromAI('meeting_id', 'Código de la reunión de Google Meet, formato abc-defg-hij', 'string') }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "4086aba8-8fdc-46b5-9e94-03a9d8a43d7b",
+      "name": "leer_transcripcion",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.5,
+      "position": [
+        480,
+        336
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "0nL5ieuckVsMkwK4",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "Envía el bot de grabación a una reunión de Google Meet para que la transcriba. Recibe el código de la reunión en formato abc-defg-hij.",
+        "method": "POST",
+        "url": "https://api.cloud.vexa.ai/bots",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"platform\": \"google_meet\",\n  \"native_meeting_id\": \"{{ $fromAI('meeting_code', 'Código de la reunión de Google Meet, formato abc-defg-hij', 'string') }}\",\n  \"recording_enabled\": true,\n  \"transcribe_enabled\": true,\n  \"transcription_tier\": \"realtime\"\n}",
+        "options": {}
+      },
+      "id": "917072a2-6a25-4bfa-9c63-61e19768cfe8",
+      "name": "entrar_reunion",
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.5,
+      "position": [
+        608,
+        336
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "0nL5ieuckVsMkwK4",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "nQovkKjjKnzwW6pi",
+          "cachedResultName": "palabras_vigiladas"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "chat_id": "={{ $('Mensaje de Telegram').item.json.message.chat.id }}",
+            "meeting_id": "={{ $fromAI('meeting_code', 'Código de la reunión de Google Meet, formato abc-defg-hij', 'string') }}",
+            "palabra": "={{ $fromAI('palabra', 'Palabra o frase que hay que vigilar en la reunión', 'string') }}",
+            "activa": true,
+            "segmentos_revisados": -1
+          },
+          "schema": [
+            {
+              "id": "chat_id",
+              "displayName": "chat_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "meeting_id",
+              "displayName": "meeting_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "palabra",
+              "displayName": "palabra",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "activa",
+              "displayName": "activa",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "segmentos_revisados",
+              "displayName": "segmentos_revisados",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "d458ff8b-abbd-42aa-9bff-30c8aaa837ef",
+      "name": "vigilar_palabra",
+      "type": "n8n-nodes-base.dataTableTool",
+      "typeVersion": 1.1,
+      "position": [
+        736,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "nQovkKjjKnzwW6pi",
+          "cachedResultName": "palabras_vigiladas"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "chat_id",
+              "keyValue": "={{ $('Mensaje de Telegram').item.json.message.chat.id }}"
+            },
+            {
+              "keyName": "palabra",
+              "condition": "ilike",
+              "keyValue": "={{ $fromAI('palabra', 'Palabra o frase que ya no hay que vigilar', 'string') }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "activa": false
+          },
+          "schema": [
+            {
+              "id": "chat_id",
+              "displayName": "chat_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "meeting_id",
+              "displayName": "meeting_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "palabra",
+              "displayName": "palabra",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "activa",
+              "displayName": "activa",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "segmentos_revisados",
+              "displayName": "segmentos_revisados",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "73785b07-e461-46e4-af1b-bea1d1a13278",
+      "name": "dejar_de_vigilar",
+      "type": "n8n-nodes-base.dataTableTool",
+      "typeVersion": 1.1,
+      "position": [
+        864,
+        336
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Mensaje de Telegram').item.json.message.chat.id }}",
+        "text": "={{ $json.output }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "4b0c7f5a-269e-4f0f-9177-88b26e8df78c",
+      "name": "Responder en Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        688,
+        112
+      ],
+      "webhookId": "dd338d5d-e1b0-4430-9136-aaab326ee6fa",
+      "credentials": {
+        "telegramApi": {
+          "id": "LbxMWfMhs1PkAgg9",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      },
+      "id": "099c56e4-db80-4e81-8a8f-254c508828aa",
+      "name": "Cada minuto",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        432
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "nQovkKjjKnzwW6pi",
+          "cachedResultName": "palabras_vigiladas"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "activa",
+              "condition": "isTrue"
+            }
+          ]
+        },
+        "returnAll": true
+      },
+      "id": "5334f511-b31a-44a5-81b7-c08ba33bf42a",
+      "name": "Palabras activas",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        272,
+        656
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://api.cloud.vexa.ai/transcripts/google_meet/{{ $json.meeting_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "da5f4892-8650-4029-81a1-dcb78fa89ab7",
+      "name": "Obtener transcripción",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        496,
+        656
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "0nL5ieuckVsMkwK4",
+          "name": "Header Auth account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const fila = $('Palabras activas').item.json;\nconst segs = Array.isArray($json.segments) ? $json.segments : [];\nconst norm = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g, '');\nconst palabra = norm(fila.palabra).trim();\nconst previo = Number(fila.segmentos_revisados);\nlet encontrados = [];\nif (previo >= 0 && palabra && segs.length > previo) {\n  encontrados = segs.slice(previo).filter(s => norm(s.text).includes(palabra)).map(s => (s.speaker ? s.speaker + ': ' : '') + String(s.text || '').trim());\n}\nreturn { json: { fila_id: fila.id, chat_id: fila.chat_id, meeting_id: fila.meeting_id, palabra: fila.palabra, total: segs.length, encontrada: encontrados.length > 0, frases: encontrados.slice(0, 3).join('\\n') } };"
+      },
+      "id": "398e0e99-46b0-44d5-8f2c-e77e2c9262e1",
+      "name": "Buscar palabra",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        656
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "nQovkKjjKnzwW6pi",
+          "cachedResultName": "palabras_vigiladas"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyValue": "={{ $json.fila_id }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "segmentos_revisados": "={{ $json.total }}"
+          },
+          "schema": [
+            {
+              "id": "chat_id",
+              "displayName": "chat_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "meeting_id",
+              "displayName": "meeting_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "palabra",
+              "displayName": "palabra",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "activa",
+              "displayName": "activa",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "segmentos_revisados",
+              "displayName": "segmentos_revisados",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ac0472a1-4581-4743-88fd-9702a66f0006",
+      "name": "Guardar progreso",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        944,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "encontrada",
+              "leftValue": "={{ $json.encontrada }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "4e2729dd-83ee-4b82-87d3-68911ef53c5c",
+      "name": "¿Se dijo la palabra?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        944,
+        752
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chat_id }}",
+        "text": "=Joel aquí: acaban de decir \"{{ $json.palabra }}\" en el Meet {{ $json.meeting_id }}.\n{{ $json.frases }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "bba52f78-bec0-4426-9381-96018348d5b8",
+      "name": "Avisar en Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1168,
+        752
+      ],
+      "webhookId": "77831da9-ba9d-45c5-bc52-e99c13bfc462",
+      "credentials": {
+        "telegramApi": {
+          "id": "LbxMWfMhs1PkAgg9",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        464,
+        416
+      ],
+      "typeVersion": 1,
+      "id": "0736b804-e52a-48b1-bed5-8522a575acb8",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        464,
+        416
+      ],
+      "typeVersion": 1,
+      "id": "f25aaeae-e0d2-440a-8dd4-fd6acac52af3",
+      "name": "Sticky Note1"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Mensaje de Telegram": {
+      "main": [
+        [
+          {
+            "node": "¿Es una captura?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Es una captura?": {
+      "main": [
+        [
+          {
+            "node": "Descargar captura",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Asistente de reuniones",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Descargar captura": {
+      "main": [
+        [
+          {
+            "node": "Preparar captura",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar captura": {
+      "main": [
+        [
+          {
+            "node": "Consejo PvP rápido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consejo PvP rápido": {
+      "main": [
+        [
+          {
+            "node": "Texto del consejo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Texto del consejo": {
+      "main": [
+        [
+          {
+            "node": "Enviar consejo en texto",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Asistente de reuniones": {
+      "main": [
+        [
+          {
+            "node": "Responder en Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Asistente de reuniones",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Memoria del chat": {
+      "ai_memory": [
+        [
+          {
+            "node": "Asistente de reuniones",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "leer_transcripcion": {
+      "ai_tool": [
+        [
+          {
+            "node": "Asistente de reuniones",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "entrar_reunion": {
+      "ai_tool": [
+        [
+          {
+            "node": "Asistente de reuniones",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "vigilar_palabra": {
+      "ai_tool": [
+        [
+          {
+            "node": "Asistente de reuniones",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "dejar_de_vigilar": {
+      "ai_tool": [
+        [
+          {
+            "node": "Asistente de reuniones",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cada minuto": {
+      "main": [
+        [
+          {
+            "node": "Palabras activas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Palabras activas": {
+      "main": [
+        [
+          {
+            "node": "Obtener transcripción",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Obtener transcripción": {
+      "main": [
+        [
+          {
+            "node": "Buscar palabra",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar palabra": {
+      "main": [
+        [
+          {
+            "node": "Guardar progreso",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "¿Se dijo la palabra?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Se dijo la palabra?": {
+      "main": [
+        [
+          {
+            "node": "Avisar en Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "ea6c4fd0-3f6c-4f32-9762-7c908e5ccfbf",
+  "meta": {
+    "instanceId": "6573cf750f2d62a7a1a5a96b695e989fbce85030147c14e58be965bce0389f61"
+  },
+  "nodeGroups": [
+    {
+      "id": "bb9788b9-4a5f-4cc4-a76a-0b9e29cb8c81",
+      "name": "Consejo por captura",
+      "nodeIds": [
+        "0e7c79f8-edba-462c-93a3-3aad7105b318",
+        "2dcf88cb-b216-4e7a-8a9c-830036b515f7",
+        "ff6e0b56-5242-47df-b4e5-165b388696f0",
+        "54bba320-4b90-498f-9e73-db59ce04f2a9",
+        "9466f94d-cb30-424b-9ae1-717f2b7088b4"
+      ],
+      "description": "Cuando llega una captura, Joel la mira y responde con un consejo corto por texto"
+    },
+    {
+      "id": "cd271346-280b-43e7-92da-d7935b2bd544",
+      "name": "Conversar con Joel",
+      "nodeIds": [
+        "57427d61-3ed9-4b2e-8890-164e6a622b91",
+        "68b9c20b-7ce9-44f5-a45c-96aaa11bc43e",
+        "6956c0fa-28cf-402d-a548-0315bb69db0d",
+        "4086aba8-8fdc-46b5-9e94-03a9d8a43d7b",
+        "917072a2-6a25-4bfa-9c63-61e19768cfe8",
+        "d458ff8b-abbd-42aa-9bff-30c8aaa837ef",
+        "73785b07-e461-46e4-af1b-bea1d1a13278",
+        "4b0c7f5a-269e-4f0f-9177-88b26e8df78c"
+      ],
+      "description": "Mensajes de texto: Joel responde sobre reuniones y lo que le pidas, con humor, solo en texto"
+    },
+    {
+      "id": "f8ecec03-b65b-4867-8e2c-746ad09ff102",
+      "name": "Vigilar palabras clave",
+      "nodeIds": [
+        "5334f511-b31a-44a5-81b7-c08ba33bf42a",
+        "da5f4892-8650-4029-81a1-dcb78fa89ab7",
+        "398e0e99-46b0-44d5-8f2c-e77e2c9262e1",
+        "ac0472a1-4581-4743-88fd-9702a66f0006",
+        "4e2729dd-83ee-4b82-87d3-68911ef53c5c",
+        "bba52f78-bec0-4426-9381-96018348d5b8"
+      ],
+      "description": "Cada minuto revisa lo nuevo dicho en el Meet y avisa por Telegram si aparece una palabra vigilada"
+    }
+  ],
+  "id": "AsNBGCHnOAHGIxf2",
+  "tags": []
+}
