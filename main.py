@@ -1,12 +1,10 @@
 """
 API web y panel central de JOEL.
-
 Rutas públicas:
     GET  /                  Panel web (HTML)
     GET  /api/info          Información básica del servidor
     GET  /health            Estado resumido (sin datos privados)
     GET  /api/auth/session  Indica si la sesión del navegador es válida
-
 Rutas privadas (X-API-Key o cookie de sesión):
     POST /api/auth/login    Abre sesión con la API key
     POST /api/auth/logout   Cierra la sesión
@@ -28,12 +26,10 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import Optional
-
 from fastapi import Cookie, Depends, FastAPI, HTTPException, Request, Response, status
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, field_validator
-
 import minecraft_client
 import minecraft_server
 import roblox_client
@@ -59,6 +55,11 @@ STATIC_DIR = BASE_DIR / "static"
 INDEX_FILE = STATIC_DIR / "index.html"
 
 app = FastAPI(title="Joel AI - Servidor Principal")
+
+@app.on_event("startup")
+def _telegram_al_iniciar():
+    _iniciar_telegram_en_segundo_plano()
+
 logger = setup_logger("web_api")
 
 if STATIC_DIR.is_dir():
@@ -139,7 +140,6 @@ def _info() -> dict:
         proveedor = providers_manager.obtener_proveedor_principal()
     except Exception:
         proveedor = "sin_configurar"
-
     return {
         "status": "Joel AI Web Server Online",
         "proveedor": proveedor,
@@ -157,12 +157,8 @@ def health_check():
 def login(req: LoginRequest, response: Response, request: Request):
     """Abre una sesión web usando la API key del propietario."""
     verificar_api_key(req.api_key)
-
-    # La cookie se marca "segura" solo cuando el navegador llegó por HTTPS
-    # (en la nube, detrás del proxy). En local sigue funcionando por HTTP.
     proto = request.headers.get("x-forwarded-proto", request.url.scheme)
     seguro = proto.split(",")[0].strip().lower() == "https"
-
     token = crear_sesion()
     response.set_cookie(
         key=SESSION_COOKIE,
@@ -211,7 +207,6 @@ def metrics(_: str = Depends(requerir_acceso)):
 def chat_endpoint(req: ChatRequest, _: str = Depends(requerir_acceso)):
     """Conversación con el cerebro de JOEL."""
     check_rate_limit(f"chat:{req.user_id}")
-
     try:
         logger.info("Petición /api/chat de %s", req.user_id)
         reply = procesar_respuesta_joel(req.user_id, req.message)
@@ -234,12 +229,9 @@ def minecraft_control(
 ):
     """Ejecuta una orden permitida sobre el bot de Minecraft."""
     check_rate_limit("minecraft:control")
-
     resultado = minecraft_client.ejecutar(req.accion)
-
     if not resultado["ok"] and resultado["estado"] == "no_disponible":
         raise HTTPException(status_code=503, detail=resultado["mensaje"])
-
     return resultado
 
 
@@ -321,17 +313,14 @@ def _iniciar_telegram_en_segundo_plano() -> None:
     if not debe_iniciar_telegram():
         logger.info("JOEL_START_TELEGRAM desactivado: no se lanza bot_telegram.py")
         return
-
     token = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
     if not token:
         logger.warning("Sin TELEGRAM_BOT_TOKEN: el panel web arranca, Telegram no.")
         return
-
     script = BASE_DIR / "bot_telegram.py"
     if not script.is_file():
         logger.warning("No se encontró bot_telegram.py; el panel web arranca igual.")
         return
-
     logs_dir = BASE_DIR / "logs"
     logs_dir.mkdir(exist_ok=True)
     pid_file = logs_dir / "telegram.pid"
@@ -346,7 +335,6 @@ def _iniciar_telegram_en_segundo_plano() -> None:
                 pid_previo,
             )
             return
-
     try:
         log_telegram = open(logs_dir / "telegram_nube.log", "a", encoding="utf-8")
         proceso = subprocess.Popen(
@@ -362,11 +350,7 @@ def _iniciar_telegram_en_segundo_plano() -> None:
 
 
 if __name__ == "__main__":
-    # Wispbyte ejecuta `python main.py` y comprueba que algo escuche
-    # en 0.0.0.0 y el puerto asignado. Sin este bloque el proceso termina
-    # al importar FastAPI y el panel muestra "Web server isn't running".
     import uvicorn
-
     _iniciar_telegram_en_segundo_plano()
     host = obtener_host_web()
     puerto = obtener_puerto_web()
