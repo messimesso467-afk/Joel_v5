@@ -1,4 +1,10 @@
-from enum import Enum
+from fastapi import FastAPI
+
+app = FastAPI()
+
+@app.head("/")
+async def root_head():
+    return Response(status_code=200)from enum import Enum
 
 class CategoriaMemoria(str, Enum):
     PREFERENCIA = "preferencia"
