@@ -1,10 +1,13 @@
 from fastapi import FastAPI
+from fastapi.responses import Response  # ✅ Faltaba esta importación
+from enum import Enum
 
 app = FastAPI()
 
 @app.head("/")
 async def root_head():
-    return Response(status_code=200)from enum import Enum
+    return Response(status_code=200)
+
 
 class CategoriaMemoria(str, Enum):
     PREFERENCIA = "preferencia"
@@ -14,12 +17,15 @@ class CategoriaMemoria(str, Enum):
     DATO = "dato"
     TAREA = "tarea"
 
+
 class Recuerdo:
     def __init__(self, **kwargs):
         self.__dict__.update(kwargs)
 
+
 class BusquedaMemoria:
     pass
+
 
 class _MemoryManager:
     def inicializar(self, *a, **k): pass
@@ -32,12 +38,13 @@ class _MemoryManager:
     def proyectos_activos(self, *a, **k): return []
     def contexto_relevante(self, *a, **k): return ""
     def contar(self, *a, **k): return 0
+    
     def __getattr__(self, name):
         # Acepta CUALQUIER método que falte → no puede fallar
         def metodo_falso(*a, **k):
             return None
         return metodo_falso
 
-memory_manager = _MemoryManager()
 
+memory_manager = _MemoryManager()
 __all__ = ["memory_manager", "CategoriaMemoria", "Recuerdo", "BusquedaMemoria"]
